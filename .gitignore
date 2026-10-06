@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# SandPocket overrides
+.agents/
+scratch_test/
+data/*.db
+

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>CheerpJ Test</title>
+  <script src="https://cjrtnc.leaningtech.com/4.3/loader.js"></script>
+</head>
+<body>
+  <h1>CheerpJ Diagnostic Page</h1>
+  <div id="log" style="white-space: pre-wrap; font-family: monospace; background: #eee; padding: 10px;"></div>
+  <button id="runBtn" onclick="run()">Run Java</button>
+
+  <script>
+    function log(msg) {
+      console.log(msg);
+      document.getElementById('log').textContent += msg + '\n';
+    }
+
+    // Intercept all console
+    const origLog = console.log;
+    console.log = function(...args) {
+      origLog.apply(console, args);
+      document.getElementById('log').textContent += '[LOG] ' + args.join(' ') + '\n';
+    };
+    const origErr = console.error;
+    console.error = function(...args) {
+      origErr.apply(console, args);
+      document.getElementById('log').textContent += '[ERR] ' + args.join(' ') + '\n';
+    };
+    const origWarn = console.warn;
+    console.warn = function(...args) {
+      origWarn.apply(console, args);
+      document.getElementById('log').textContent += '[WARN] ' + args.join(' ') + '\n';
+    };
+
+    window.onerror = function(msg, url, line, col, error) {
+      log('[WINDOW ERROR] ' + msg + ' at ' + url + ':' + line + (error ? ' ' + error.stack : ''));
+    };
+    window.onunhandledrejection = function(e) {
+      log('[UNHANDLED REJECTION] ' + (e.reason ? (e.reason.stack || e.reason) : e));
+    };
+
+    async function run() {
+      try {
+        log('Initializing CheerpJ...');
+        await cheerpjInit({
+          version: 8,
+          status: "default"
+        });
+        log('CheerpJ initialized!');
+
+        log('Compiling code via API...');
+        const compileRes = await fetch('/api/compile/java', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: 'public class Main { public static void main(String[] args) { System.out.println("HELLO FROM JAVA CHEERPJ!"); } }'
+          })
+        });
+        const compileData = await compileRes.json();
+        log('Compile result: ' + JSON.stringify(compileData));
+
+        const jarUrl = compileData.jarPath;
+        log('Testing JAR fetch: ' + jarUrl);
+        const headRes = await fetch(jarUrl, { method: 'HEAD' });
+        log('HEAD status: ' + headRes.status + ' length: ' + headRes.headers.get('content-length'));
+
+        const appJarPath = '/app' + jarUrl;
+        log('Running cheerpjRunMain with path: ' + appJarPath);
+        const exitCode = await cheerpjRunMain('Main', appJarPath);
+        log('Java finished with exit code: ' + exitCode);
+      } catch (err) {
+        log('Caught error: ' + (err.stack || err));
+      }
+    }
+  </script>
+</body>
+</html>
